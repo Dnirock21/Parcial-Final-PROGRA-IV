@@ -1,0 +1,252 @@
+<div class="container">
+  <header class="topbar">
+    <h1>Evaluación Integral de Satisfacción del Cliente</h1>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <a routerLink="/pedidos" class="btn btn-primary">Parcial 1: Pedidos</a>
+      <button type="button" class="btn btn-outline" (click)="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert alert-error">{{ error() }}</div>
+  }
+
+  <!-- ===================== REPORTE INICIAL + FORMULARIO ===================== -->
+  <section class="grid-top">
+    <!-- Card de usuario -->
+    <article class="card user-card">
+      <div class="user-head">
+        @if (usuario()?.photoURL) {
+          <img class="avatar" [src]="usuario()!.photoURL" alt="Foto de perfil" referrerpolicy="no-referrer" />
+        }
+        <div>
+          <p class="muted">Bienvenido(a)</p>
+          <h2>{{ usuario()?.displayName || 'Usuario' }}</h2>
+          <p class="email">{{ usuario()?.email }}</p>
+        </div>
+      </div>
+
+      <dl class="user-stats">
+        <div>
+          <dt>Último registro</dt>
+          <dd>
+            @if (stats()?.ultimo_registro) {
+              {{ stats()!.ultimo_registro | date: 'dd/MM/yyyy HH:mm' }}
+            } @else {
+              Sin registros
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Total de registros</dt>
+          <dd>{{ stats()?.total ?? 0 }}</dd>
+        </div>
+        <div>
+          <dt>Promedio general</dt>
+          <dd>
+            @if (stats() && stats()!.total > 0) {
+              {{ stats()!.promedios.general | number: '1.2-2' }}
+              <span [class]="'badge ' + claseClasificacion(stats()!.clasificacion_global)">
+                {{ stats()!.clasificacion_global }}
+              </span>
+            } @else {
+              —
+            }
+          </dd>
+        </div>
+      </dl>
+
+      @if (stats() && stats()!.total > 0) {
+        <div class="global-note">
+          <p><strong>Mejor evaluado (global):</strong> {{ stats()!.mejor_global }}</p>
+          <p><strong>Peor evaluado (global):</strong> {{ stats()!.peor_global }}</p>
+        </div>
+      }
+    </article>
+
+    <!-- Formulario -->
+    <article class="card">
+      <h2>Nueva encuesta</h2>
+      <p class="muted">Califica cada indicador de 1 (muy bajo) a 5 (excelente).</p>
+
+      <form (submit)="guardar($event)">
+        @for (ind of indicadores; track ind.key) {
+          <div class="rating-row">
+            <span class="rating-label">{{ ind.nombre }}</span>
+            <div class="rating" role="group" [attr.aria-label]="ind.nombre">
+              @for (n of escala; track n) {
+                <button
+                  type="button"
+                  class="rate-btn"
+                  [class.active]="valores()[ind.key] === n"
+                  [attr.aria-pressed]="valores()[ind.key] === n"
+                  (click)="setValor(ind.key, n)"
+                >
+                  {{ n }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="preview">
+          <p>
+            <strong>Vista previa:</strong>
+            promedio {{ preview().promedio | number: '1.2-2' }}
+            <span [class]="'badge ' + claseClasificacion(preview().clasificacion)">
+              {{ preview().clasificacion }}
+            </span>
+          </p>
+          <p class="muted small">
+            Mejor: {{ preview().mejor }} · Peor: {{ preview().peor }}
+          </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary" [disabled]="enviando()">
+          {{ enviando() ? 'Guardando...' : 'Guardar encuesta' }}
+        </button>
+      </form>
+
+      @if (ultimoResultado(); as r) {
+        <div class="alert alert-ok">
+          <p><strong>Encuesta guardada.</strong></p>
+          <p>
+            Promedio: {{ r.promedio | number: '1.2-2' }}
+            <span [class]="'badge ' + claseClasificacion(r.clasificacion)">{{ r.clasificacion }}</span>
+          </p>
+          <p>Mejor evaluado: {{ r.mejor_indicador }}</p>
+          <p>Peor evaluado: {{ r.peor_indicador }}</p>
+        </div>
+      }
+    </article>
+  </section>
+
+  <!-- ===================== GRÁFICAS ===================== -->
+  <section class="grid-charts">
+    <article class="card">
+      <h2>Barras comparativas por indicador</h2>
+      <div class="chart-box">
+        <canvas #barCanvas></canvas>
+        @if (!cargando() && (!stats() || stats()!.total === 0)) {
+          <div class="chart-empty">Registra tu primera encuesta para ver tus promedios.</div>
+        }
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Radar de competencias evaluadas</h2>
+      <div class="chart-box">
+        <canvas #radarCanvas></canvas>
+        @if (!cargando() && (!stats() || stats()!.total === 0)) {
+          <div class="chart-empty">Registra tu primera encuesta para ver tus promedios.</div>
+        }
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================== COMPARACIÓN CON LA INDUSTRIA ===================== -->
+  <section class="card">
+    <h2>Comparación con la industria</h2>
+    @if (industria(); as ind) {
+      <p class="muted">
+        {{ ind.industria }} · Fuente: {{ ind.fuente }}
+        @if (ind.actualizado) { · Actualizado: {{ ind.actualizado }} }
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Tu promedio</th>
+              <th>Industria</th>
+              <th>Diferencia</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of comparacion(); track fila.key) {
+              <tr>
+                <td>{{ fila.nombre }}</td>
+                <td>
+                  @if (fila.usuario !== null) {
+                    {{ fila.usuario | number: '1.2-2' }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td>{{ fila.industria | number: '1.2-2' }}</td>
+                <td>
+                  @if (fila.diferencia !== null) {
+                    {{ fila.diferencia > 0 ? '+' : '' }}{{ fila.diferencia | number: '1.2-2' }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td>
+                  @switch (fila.estado) {
+                    @case ('arriba') {
+                      <span class="badge b-excelente">Por encima</span>
+                    }
+                    @case ('abajo') {
+                      <span class="badge b-deficiente">Por debajo</span>
+                    }
+                    @case ('igual') {
+                      <span class="badge b-aceptable">Similar</span>
+                    }
+                    @default {
+                      <span class="badge b-neutro">Sin datos</span>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">Cargando métricas de la industria...</p>
+    }
+  </section>
+
+  <!-- ===================== HISTORIAL ===================== -->
+  <section class="card">
+    <h2>Mis encuestas</h2>
+    @if (historial().length === 0) {
+      <p class="muted">Aún no has registrado encuestas.</p>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Atención</th>
+              <th>Tiempo</th>
+              <th>Resolución</th>
+              <th>Promedio</th>
+              <th>Clasificación</th>
+              <th>Mejor</th>
+              <th>Peor</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of historial(); track e.id) {
+              <tr>
+                <td>{{ e.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ e.atencion }}</td>
+                <td>{{ e.tiempo }}</td>
+                <td>{{ e.resolucion }}</td>
+                <td>{{ e.promedio | number: '1.2-2' }}</td>
+                <td>
+                  <span [class]="'badge ' + claseClasificacion(e.clasificacion)">{{ e.clasificacion }}</span>
+                </td>
+                <td>{{ e.mejor_indicador }}</td>
+                <td>{{ e.peor_indicador }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

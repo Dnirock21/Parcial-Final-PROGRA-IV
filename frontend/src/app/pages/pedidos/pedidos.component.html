@@ -1,0 +1,152 @@
+<div class="container py-4">
+  <!-- Barra superior de navegación entre Parcial 1 y Parcial 2 -->
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+    <div>
+      <h2 class="h4 mb-0 fw-bold">Parcial 1: Registro de Pedidos (Mini E-commerce)</h2>
+      <small class="text-muted">Gestión de ventas, cálculos automáticos y reporte por cliente</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a routerLink="/pedidos" class="btn btn-primary btn-sm">Parcial 1: Pedidos</a>
+      <a routerLink="/dashboard" class="btn btn-outline-secondary btn-sm">Parcial 2: Encuestas</a>
+    </div>
+  </div>
+
+  <!-- Alertas -->
+  <div *ngIf="errorMsg" class="alert alert-danger py-2">{{ errorMsg }}</div>
+  <div *ngIf="exitoMsg" class="alert alert-success py-2">{{ exitoMsg }}</div>
+
+  <div class="row g-4">
+    <!-- Formulario de registro / edición -->
+    <div class="col-lg-5">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            {{ editandoId ? 'Editar Pedido' : 'Nuevo Pedido' }}
+          </h5>
+
+          <form (ngSubmit)="guardarPedido()">
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Fecha</label>
+              <input type="date" class="form-control" [(ngModel)]="form.fecha" name="fecha" required>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Cliente</label>
+              <input type="text" class="form-control" placeholder="Ej. Juan Pérez" [(ngModel)]="form.cliente" name="cliente" required>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Producto</label>
+              <input type="text" class="form-control" placeholder="Ej. Teclado Mecánico" [(ngModel)]="form.producto" name="producto" required>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-4">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                <input type="number" class="form-control" min="1" [(ngModel)]="form.cantidad" name="cantidad" required>
+              </div>
+              <div class="col-4">
+                <label class="form-label small fw-semibold">Precio Unit.</label>
+                <input type="number" class="form-control" min="0" step="0.01" [(ngModel)]="form.precioUnit" name="precioUnit" required>
+              </div>
+              <div class="col-4">
+                <label class="form-label small fw-semibold">Envío</label>
+                <input type="number" class="form-control" min="0" step="0.01" [(ngModel)]="form.envio" name="envio">
+              </div>
+            </div>
+
+            <!-- Cálculos en tiempo real -->
+            <div class="bg-light rounded p-3 mb-3 d-flex justify-content-between">
+              <div>
+                <span class="text-muted small d-block">Subtotal</span>
+                <strong>{{ subtotalPreview | currency }}</strong>
+              </div>
+              <div class="text-end">
+                <span class="text-muted small d-block">Total a pagar</span>
+                <strong class="text-primary fs-5">{{ totalPreview | currency }}</strong>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary w-100">
+                {{ editandoId ? 'Actualizar Pedido' : 'Guardar Pedido' }}
+              </button>
+              <button *ngIf="editandoId" type="button" class="btn btn-outline-secondary" (click)="cancelarEdicion()">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reporte Gráfico e Ingreso por Cliente -->
+    <div class="col-lg-7">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title mb-0">Reporte Gráfico: Ingresos por Cliente</h5>
+            <span class="badge bg-success fs-6">
+              Ingreso Total: {{ ingresoTotalFiltrado | currency }}
+            </span>
+          </div>
+          <canvas #chartCanvas height="155"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de Pedidos y Filtro por Cliente -->
+  <div class="card shadow-sm border-0 mt-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-md-6">
+          <h5 class="mb-0">Listado de Pedidos ({{ pedidos.length }})</h5>
+        </div>
+        <div class="col-md-6 d-flex gap-2">
+          <input
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="Filtrar ingreso por cliente..."
+            [(ngModel)]="filtroCliente"
+            (keyup.enter)="cargarPedidos()">
+          <button class="btn btn-outline-primary btn-sm" (click)="cargarPedidos()">Filtrar</button>
+          <button *ngIf="filtroCliente" class="btn btn-outline-secondary btn-sm" (click)="filtroCliente=''; cargarPedidos()">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Subtotal</th>
+              <th>Total</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of pedidos">
+              <td>{{ p.fecha }}</td>
+              <td class="fw-semibold">{{ p.cliente }}</td>
+              <td>{{ p.producto }}</td>
+              <td>{{ p.cantidad }}</td>
+              <td>{{ p.subtotal | currency }}</td>
+              <td class="fw-bold text-primary">{{ p.total | currency }}</td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-warning me-1" (click)="editarPedido(p)">Editar</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="eliminarPedido(p.id)">Eliminar</button>
+              </td>
+            </tr>
+            <tr *ngIf="pedidos.length === 0">
+              <td colspan="7" class="text-center text-muted py-4">No hay pedidos registrados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
