@@ -1,0 +1,15 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno y credenciales privadas
+.env
+*.env
+serviceAccountKey.json
+
+# Builds y caché de Angular
+dist/
+.angular/
+
+# Archivos del sistema / editor
+.DS_Store
+Thumbs.db
